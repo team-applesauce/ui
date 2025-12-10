@@ -42,6 +42,11 @@ export interface Alert {
   severity: 'critical' | 'warning' | 'info';
   timestamp: string;
   location?: string;
+  status?: 'active' | 'resolved' | 'acknowledged';
+  metadata?: {
+    rul_hours?: number;
+    failure_probability?: number;
+  };
 }
 
 export interface EquipmentStatus {

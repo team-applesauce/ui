@@ -23,6 +23,10 @@ export function getCloudantClient(): CloudantV1 {
 }
 
 export function getDatabaseName(): string {
-  return process.env.CLOUDANT_DATABASE || 'sensor-data';
+  return process.env.CLOUDANT_DATABASE || 'mqtt-messages';
+}
+
+export function getAlertsDatabaseName(): string {
+  return process.env.CLOUDANT_ALERTS_DATABASE || 'alerts';
 }
 

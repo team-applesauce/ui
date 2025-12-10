@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, AlertCircle, Info, MapPin, Clock } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, Clock, Cpu, Timer } from 'lucide-react';
 import { Alert } from '@/types/sensor';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -29,6 +29,10 @@ export function AlertsPanel({ alerts }: AlertsPanelProps) {
       default:
         return 'alert-item-info';
     }
+  };
+
+  const formatProbability = (prob: number) => {
+    return `${Math.round(prob * 100)}%`;
   };
 
   if (alerts.length === 0) {
@@ -65,19 +69,36 @@ export function AlertsPanel({ alerts }: AlertsPanelProps) {
               </span>
             </div>
             <p className="alert-message">{alert.message}</p>
+            
+            {/* Metadata: Failure Probability & RUL */}
+            {alert.metadata && (
+              <div className="alert-metadata">
+                {alert.metadata.failure_probability !== undefined && (
+                  <span className="alert-metadata-item alert-probability">
+                    <span className="metadata-label">Failure Risk:</span>
+                    <span className={`metadata-value ${alert.metadata.failure_probability > 0.7 ? 'high' : alert.metadata.failure_probability > 0.4 ? 'medium' : 'low'}`}>
+                      {formatProbability(alert.metadata.failure_probability)}
+                    </span>
+                  </span>
+                )}
+                {alert.metadata.rul_hours !== undefined && (
+                  <span className="alert-metadata-item alert-rul">
+                    <Timer className="w-3 h-3" />
+                    <span className="metadata-label">RUL:</span>
+                    <span className="metadata-value">{alert.metadata.rul_hours}h</span>
+                  </span>
+                )}
+              </div>
+            )}
+            
             <div className="alert-meta">
               <span className="alert-meta-item">
                 <Clock className="w-3 h-3" />
                 {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
               </span>
-              {alert.location && (
-                <span className="alert-meta-item">
-                  <MapPin className="w-3 h-3" />
-                  {alert.location}
-                </span>
-              )}
               <span className="alert-meta-item">
-                Equipment: {alert.equipment_id}
+                <Cpu className="w-3 h-3" />
+                {alert.equipment_id}
               </span>
             </div>
           </div>

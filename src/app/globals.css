@@ -519,6 +519,47 @@ body::before {
   color: var(--text-muted);
 }
 
+.alert-metadata {
+  display: flex;
+  gap: 1rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.alert-metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.metadata-label {
+  color: var(--text-muted);
+}
+
+.metadata-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.metadata-value.high {
+  color: var(--accent-red);
+}
+
+.metadata-value.medium {
+  color: var(--accent-amber);
+}
+
+.metadata-value.low {
+  color: var(--accent-green);
+}
+
+.alert-rul .metadata-value {
+  color: var(--accent-cyan);
+}
+
 .alert-meta-item {
   display: flex;
   align-items: center;
@@ -784,4 +825,165 @@ body::before {
 .ibm-badge span {
   font-weight: 600;
   color: var(--accent-blue);
+}
+
+/* Machine Selector */
+.machine-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.machine-selector-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.machine-selector-wrapper {
+  position: relative;
+}
+
+.machine-selector-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  min-width: 180px;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+
+.machine-selector-button:hover {
+  border-color: var(--accent-blue);
+  background: var(--bg-card-hover);
+}
+
+.machine-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.machine-selector-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.machine-selector-option:hover {
+  background: var(--bg-card-hover);
+}
+
+.machine-selector-option.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-left: 3px solid var(--accent-blue);
+}
+
+.machine-option-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.machine-option-topic {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* Machine Tabs */
+.machine-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.machine-tab {
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.machine-tab:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.machine-tab.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+
+/* No Data Message */
+.no-data-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-primary);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+}
+
+.no-data-message p {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .machine-selector-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .machine-tabs {
+    margin-left: 0;
+    width: 100%;
+  }
+  
+  .machine-selector-wrapper {
+    width: 100%;
+  }
+  
+  .machine-selector-button {
+    width: 100%;
+  }
 }

@@ -1,24 +1,35 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Flame } from 'lucide-react';
+import { RefreshCw, Flame, ChevronDown } from 'lucide-react';
 import { SensorChart } from '@/components/SensorChart';
 import { AlertsPanel } from '@/components/AlertsPanel';
 import { MetricCard } from '@/components/MetricCard';
 import { EquipmentStatus } from '@/components/EquipmentStatus';
 import { ChartDataPoint, Alert, EquipmentStatus as EquipmentStatusType } from '@/types/sensor';
 
+interface Machine {
+  id: string;
+  name: string;
+  topic: string;
+}
+
+interface LatestReadings {
+  temperature: number | null;
+  vibration: number | null;
+  humidity: number | null;
+  rpm: number | null;
+  current: number | null;
+}
+
 interface DashboardData {
+  machines: Machine[];
   chartData: ChartDataPoint[];
+  chartDataByMachine: Record<string, ChartDataPoint[]>;
   alerts: Alert[];
   equipmentStatus: EquipmentStatusType[];
-  latestReadings: {
-    temperature: number | null;
-    vibration: number | null;
-    humidity: number | null;
-    rpm: number | null;
-    current: number | null;
-  };
+  latestReadings: LatestReadings;
+  latestReadingsByMachine: Record<string, LatestReadings>;
   totalReadings: number;
 }
 
@@ -53,6 +64,8 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     try {
@@ -66,6 +79,11 @@ export default function Dashboard() {
         setData(result.data);
         setLastUpdated(new Date());
         setError(null);
+        
+        // Auto-select first machine if none selected
+        if (!selectedMachine && result.data.machines?.length > 0) {
+          setSelectedMachine(result.data.machines[0].name);
+        }
       } else {
         setError(result.error || 'Failed to fetch data');
       }
@@ -76,7 +94,7 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedMachine]);
 
   useEffect(() => {
     fetchData();
@@ -112,13 +130,20 @@ export default function Dashboard() {
     );
   }
 
-  const { chartData, alerts, equipmentStatus, latestReadings, totalReadings } = data || {
-    chartData: [],
-    alerts: [],
-    equipmentStatus: [],
-    latestReadings: { temperature: null, vibration: null, humidity: null, rpm: null, current: null },
-    totalReadings: 0,
-  };
+  const { 
+    machines = [], 
+    chartDataByMachine = {}, 
+    alerts = [], 
+    equipmentStatus = [], 
+    latestReadingsByMachine = {},
+    totalReadings = 0 
+  } = data || {};
+
+  // Get data for selected machine
+  const chartData = selectedMachine ? (chartDataByMachine[selectedMachine] || []) : [];
+  const latestReadings = selectedMachine 
+    ? (latestReadingsByMachine[selectedMachine] || { temperature: null, vibration: null, humidity: null, rpm: null, current: null })
+    : { temperature: null, vibration: null, humidity: null, rpm: null, current: null };
 
   return (
     <div className="dashboard">
@@ -160,6 +185,51 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Machine Selector */}
+      <div className="machine-selector-container">
+        <label className="machine-selector-label">Select Machine:</label>
+        <div className="machine-selector-wrapper">
+          <button 
+            className="machine-selector-button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+          >
+            <span>{selectedMachine || 'Select a machine'}</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {dropdownOpen && (
+            <div className="machine-selector-dropdown">
+              {machines.map((machine) => (
+                <button
+                  key={machine.id}
+                  className={`machine-selector-option ${selectedMachine === machine.name ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedMachine(machine.name);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  <span className="machine-option-name">{machine.name}</span>
+                  <span className="machine-option-topic">{machine.topic}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Machine quick select buttons */}
+        <div className="machine-tabs">
+          {machines.map((machine) => (
+            <button
+              key={machine.id}
+              className={`machine-tab ${selectedMachine === machine.name ? 'active' : ''}`}
+              onClick={() => setSelectedMachine(machine.name)}
+            >
+              {machine.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Metrics Row */}
       <div className="metrics-grid">
         <MetricCard
@@ -199,53 +269,59 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="charts-section">
-        <SensorChart
-          data={chartData}
-          title="🌡️ Temperature Trend"
-          dataKey="temperature"
-          color="#ef4444"
-          unit="°C"
-          minValue={0}
-          maxValue={100}
-        />
-        <SensorChart
-          data={chartData}
-          title="📈 Vibration Analysis"
-          dataKey="vibration"
-          color="#10b981"
-          unit=" mm/s"
-          minValue={0}
-          maxValue={30}
-        />
-        <SensorChart
-          data={chartData}
-          title="⚙️ RPM Monitor"
-          dataKey="rpm"
-          color="#8b5cf6"
-          unit=""
-          minValue={0}
-          maxValue={3000}
-        />
-        <SensorChart
-          data={chartData}
-          title="⚡ Current Monitor"
-          dataKey="current"
-          color="#f59e0b"
-          unit=" A"
-          minValue={0}
-          maxValue={60}
-        />
-        <SensorChart
-          data={chartData}
-          title="💨 Humidity Trend"
-          dataKey="humidity"
-          color="#06b6d4"
-          unit="%"
-          minValue={0}
-          maxValue={100}
-        />
-      </div>
+      {selectedMachine && chartData.length > 0 ? (
+        <div className="charts-section">
+          <SensorChart
+            data={chartData}
+            title={`🌡️ Temperature - ${selectedMachine}`}
+            dataKey="temperature"
+            color="#ef4444"
+            unit="°C"
+            minValue={0}
+            maxValue={100}
+          />
+          <SensorChart
+            data={chartData}
+            title={`📈 Vibration - ${selectedMachine}`}
+            dataKey="vibration"
+            color="#10b981"
+            unit=" mm/s"
+            minValue={0}
+            maxValue={30}
+          />
+          <SensorChart
+            data={chartData}
+            title={`⚙️ RPM - ${selectedMachine}`}
+            dataKey="rpm"
+            color="#8b5cf6"
+            unit=""
+            minValue={0}
+            maxValue={3000}
+          />
+          <SensorChart
+            data={chartData}
+            title={`⚡ Current - ${selectedMachine}`}
+            dataKey="current"
+            color="#f59e0b"
+            unit=" A"
+            minValue={0}
+            maxValue={60}
+          />
+          <SensorChart
+            data={chartData}
+            title={`💨 Humidity - ${selectedMachine}`}
+            dataKey="humidity"
+            color="#06b6d4"
+            unit="%"
+            minValue={0}
+            maxValue={100}
+          />
+        </div>
+      ) : (
+        <div className="no-data-message">
+          <p>Select a machine to view sensor data</p>
+        </div>
+      )}
 
       {/* Bottom Section: Alerts & Equipment */}
       <div className="bottom-section">
@@ -260,7 +336,7 @@ export default function Dashboard() {
         color: 'var(--text-muted)',
         fontSize: '0.75rem'
       }}>
-        Monitoring {totalReadings} sensor readings • {equipmentStatus.length} equipment units tracked
+        Monitoring {totalReadings} sensor readings • {machines.length} machines tracked
       </div>
     </div>
   );

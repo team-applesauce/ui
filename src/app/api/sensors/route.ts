@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudantClient, getDatabaseName } from '@/lib/cloudant';
+import { getCloudantClient, getDatabaseName, getAlertsDatabaseName } from '@/lib/cloudant';
 import { SensorReading } from '@/types/sensor';
 
 // Extract machine name from MQTT topic
@@ -46,19 +46,29 @@ export async function GET() {
       .filter((row) => row.doc && row.doc.type === 'mqtt_message')
       .map((row) => row.doc as SensorReading);
 
-    // Process data for charts and alerts
+    // Get list of machines from topics
+    const machines = getUniqueMachines(docs);
+    
+    // Process data for charts
     const chartData = processChartData(docs);
-    const alerts = extractAlerts(docs);
+    const chartDataByMachine = getChartDataByMachine(docs);
     const equipmentStatus = getEquipmentStatus(docs);
     const latestReadings = getLatestReadings(docs);
+    const latestReadingsByMachine = getLatestReadingsByMachine(docs);
+    
+    // Fetch alerts from alerts database
+    const alerts = await fetchAlertsFromDatabase(client);
 
     return NextResponse.json({
       success: true,
       data: {
+        machines,
         chartData,
+        chartDataByMachine,
         alerts,
         equipmentStatus,
         latestReadings,
+        latestReadingsByMachine,
         totalReadings: docs.length,
       },
     });
@@ -72,21 +82,52 @@ export async function GET() {
 }
 
 function processChartData(docs: SensorReading[]) {
-  // Filter docs with parsed payload and sort by _id (Cloudant IDs are sequential)
+  // Filter docs with parsed payload and sort by timestamp (oldest first)
   const filteredDocs = docs
     .filter((doc) => doc.payload_parsed)
-    .sort((a, b) => a._id.localeCompare(b._id)); // Sort by document ID (oldest first)
+    .sort((a, b) => {
+      // Get timestamps from payload_parsed or document level
+      const tsA = a.payload_parsed?.timestamp || a.timestamp;
+      const tsB = b.payload_parsed?.timestamp || b.timestamp;
+      
+      // If both have timestamps, compare as dates
+      if (tsA && tsB) {
+        return new Date(tsA).getTime() - new Date(tsB).getTime();
+      }
+      
+      // If only one has timestamp, put the one with timestamp first
+      if (tsA && !tsB) return -1;
+      if (!tsA && tsB) return 1;
+      
+      // Fall back to _id comparison (Cloudant IDs are sequential)
+      return a._id.localeCompare(b._id);
+    });
   
-  // Take the last 100 readings for better visibility
+  // Take the last 100 readings for better visibility (most recent)
   const recentDocs = filteredDocs.slice(-100);
   
-  // Create data points with sequential index for X-axis
+  // Create data points with timestamp for X-axis
   const dataPoints = recentDocs.map((doc, index) => {
     const parsed = doc.payload_parsed!;
+    const timestamp = parsed.timestamp || doc.timestamp;
+    
+    // Format time for display
+    let timeLabel: string;
+    if (timestamp) {
+      const date = new Date(timestamp);
+      timeLabel = date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false 
+      });
+    } else {
+      timeLabel = `#${index + 1}`;
+    }
     
     return {
-      timestamp: doc._id, // Use _id as unique identifier
-      time: `#${index + 1}`, // Sequential reading number
+      timestamp: timestamp || doc._id,
+      time: timeLabel,
       temperature: parsed.temperature,
       vibration: parsed.vibration,
       humidity: parsed.humidity,
@@ -98,26 +139,83 @@ function processChartData(docs: SensorReading[]) {
   return dataPoints;
 }
 
-function extractAlerts(docs: SensorReading[]) {
-  const alerts = docs
-    .filter((doc) => doc.payload_parsed?.alert === true)
-    .map((doc) => {
-      const parsed = doc.payload_parsed!;
-      const machineName = getMachineNameFromTopic(doc.topic);
-      return {
-        id: doc._id,
-        sensor_id: parsed.sensor_id || machineName,
-        equipment_id: parsed.equipment_id || machineName,
-        type: parsed.alert_type || 'general',
-        message: parsed.alert_message || 'Alert triggered',
-        severity: getSeverity(parsed),
-        timestamp: parsed.timestamp || doc.timestamp || new Date().toISOString(),
-        location: parsed.location,
-      };
-    })
-    .slice(0, 10); // Latest 10 alerts
+interface AlertDocument {
+  _id: string;
+  _rev: string;
+  type: string;
+  alert_type: string;
+  severity: 'high' | 'medium' | 'low';
+  machine_id: string;
+  message: string;
+  timestamp: string;
+  status: 'active' | 'resolved' | 'acknowledged';
+  metadata?: {
+    rul_hours?: number;
+    failure_probability?: number;
+  };
+}
 
-  return alerts;
+async function fetchAlertsFromDatabase(client: ReturnType<typeof getCloudantClient>) {
+  try {
+    const alertsDbName = getAlertsDatabaseName();
+    
+    const response = await client.postAllDocs({
+      db: alertsDbName,
+      includeDocs: true,
+      limit: 100,
+      descending: true,
+    });
+
+    const alerts = response.result.rows
+      .filter((row) => row.doc && row.doc.type === 'alert')
+      .map((row) => {
+        const doc = row.doc as AlertDocument;
+        
+        // Map severity: high -> critical, medium -> warning, low -> info
+        const severityMap: Record<string, 'critical' | 'warning' | 'info'> = {
+          'high': 'critical',
+          'medium': 'warning',
+          'low': 'info',
+          'critical': 'critical',
+          'warning': 'warning',
+          'info': 'info',
+        };
+        
+        // Format machine name nicely (machine-1 -> Machine 1)
+        const machineName = doc.machine_id
+          .replace('machine-', 'Machine ')
+          .replace('machine_', 'Machine ')
+          .replace(/-/g, ' ')
+          .replace(/_/g, ' ');
+        
+        // Build enhanced message with metadata
+        let message = doc.message;
+        if (doc.metadata?.rul_hours) {
+          message += ` (RUL: ${doc.metadata.rul_hours}h)`;
+        }
+        
+        return {
+          id: doc._id,
+          sensor_id: doc.machine_id,
+          equipment_id: machineName,
+          type: doc.alert_type.replace(/_/g, ' '),
+          message: message,
+          severity: severityMap[doc.severity] || 'warning',
+          timestamp: doc.timestamp,
+          status: doc.status,
+          metadata: doc.metadata,
+        };
+      })
+      .filter((alert) => alert.status === 'active') // Only show active alerts
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 20); // Latest 20 alerts
+
+    return alerts;
+  } catch (error) {
+    console.error('Error fetching alerts from database:', error);
+    // Return empty array if alerts database doesn't exist or has issues
+    return [];
+  }
 }
 
 function getSeverity(parsed: NonNullable<SensorReading['payload_parsed']>): 'critical' | 'warning' | 'info' {
@@ -168,10 +266,20 @@ function getEquipmentStatus(docs: SensorReading[]) {
 }
 
 function getLatestReadings(docs: SensorReading[]) {
-  // Sort by _id descending to get the most recent document
+  // Sort by timestamp descending to get the most recent document
   const sortedDocs = docs
     .filter((doc) => doc.payload_parsed)
-    .sort((a, b) => b._id.localeCompare(a._id)); // Most recent first
+    .sort((a, b) => {
+      const tsA = a.payload_parsed?.timestamp || a.timestamp;
+      const tsB = b.payload_parsed?.timestamp || b.timestamp;
+      
+      if (tsA && tsB) {
+        return new Date(tsB).getTime() - new Date(tsA).getTime(); // Most recent first
+      }
+      if (tsA && !tsB) return -1;
+      if (!tsA && tsB) return 1;
+      return b._id.localeCompare(a._id);
+    });
   
   const latest = sortedDocs[0];
   
@@ -192,5 +300,144 @@ function getLatestReadings(docs: SensorReading[]) {
     rpm: latest.payload_parsed.rpm ?? null,
     current: latest.payload_parsed.current ?? null,
   };
+}
+
+function getUniqueMachines(docs: SensorReading[]): { id: string; name: string; topic: string }[] {
+  const machineMap = new Map<string, { name: string; topic: string }>();
+  
+  docs.forEach((doc) => {
+    const machineName = getMachineNameFromTopic(doc.topic);
+    if (!machineMap.has(machineName)) {
+      machineMap.set(machineName, {
+        name: machineName,
+        topic: doc.topic,
+      });
+    }
+  });
+  
+  return Array.from(machineMap.entries())
+    .map(([id, data]) => ({ id, ...data }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function getChartDataByMachine(docs: SensorReading[]): Record<string, ReturnType<typeof processChartData>> {
+  const machineGroups = new Map<string, SensorReading[]>();
+  
+  // Group documents by machine
+  docs.forEach((doc) => {
+    const machineName = getMachineNameFromTopic(doc.topic);
+    if (!machineGroups.has(machineName)) {
+      machineGroups.set(machineName, []);
+    }
+    machineGroups.get(machineName)!.push(doc);
+  });
+  
+  // Process chart data for each machine
+  const result: Record<string, ReturnType<typeof processChartData>> = {};
+  machineGroups.forEach((machineDocs, machineName) => {
+    result[machineName] = processChartDataForMachine(machineDocs);
+  });
+  
+  return result;
+}
+
+function processChartDataForMachine(docs: SensorReading[]) {
+  // Filter docs with parsed payload and sort by timestamp (oldest first)
+  const filteredDocs = docs
+    .filter((doc) => doc.payload_parsed)
+    .sort((a, b) => {
+      const tsA = a.payload_parsed?.timestamp || a.timestamp;
+      const tsB = b.payload_parsed?.timestamp || b.timestamp;
+      
+      if (tsA && tsB) {
+        return new Date(tsA).getTime() - new Date(tsB).getTime();
+      }
+      if (tsA && !tsB) return -1;
+      if (!tsA && tsB) return 1;
+      return a._id.localeCompare(b._id);
+    });
+  
+  // Take all readings for this machine (up to 100)
+  const recentDocs = filteredDocs.slice(-100);
+  
+  // Create data points with timestamp for X-axis
+  const dataPoints = recentDocs.map((doc, index) => {
+    const parsed = doc.payload_parsed!;
+    const timestamp = parsed.timestamp || doc.timestamp;
+    
+    let timeLabel: string;
+    if (timestamp) {
+      const date = new Date(timestamp);
+      timeLabel = date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false 
+      });
+    } else {
+      timeLabel = `#${index + 1}`;
+    }
+    
+    return {
+      timestamp: timestamp || doc._id,
+      time: timeLabel,
+      temperature: parsed.temperature,
+      vibration: parsed.vibration,
+      humidity: parsed.humidity,
+      rpm: parsed.rpm,
+      current: parsed.current,
+    };
+  });
+
+  return dataPoints;
+}
+
+function getLatestReadingsByMachine(docs: SensorReading[]): Record<string, ReturnType<typeof getLatestReadings>> {
+  const machineGroups = new Map<string, SensorReading[]>();
+  
+  // Group documents by machine
+  docs.forEach((doc) => {
+    const machineName = getMachineNameFromTopic(doc.topic);
+    if (!machineGroups.has(machineName)) {
+      machineGroups.set(machineName, []);
+    }
+    machineGroups.get(machineName)!.push(doc);
+  });
+  
+  // Get latest readings for each machine
+  const result: Record<string, ReturnType<typeof getLatestReadings>> = {};
+  machineGroups.forEach((machineDocs, machineName) => {
+    const sortedDocs = machineDocs
+      .filter((doc) => doc.payload_parsed)
+      .sort((a, b) => {
+        const tsA = a.payload_parsed?.timestamp || a.timestamp;
+        const tsB = b.payload_parsed?.timestamp || b.timestamp;
+        
+        if (tsA && tsB) {
+          return new Date(tsB).getTime() - new Date(tsA).getTime();
+        }
+        if (tsA && !tsB) return -1;
+        if (!tsA && tsB) return 1;
+        return b._id.localeCompare(a._id);
+      });
+    
+    const latest = sortedDocs[0];
+    
+    result[machineName] = latest?.payload_parsed ? {
+      temperature: latest.payload_parsed.temperature ?? null,
+      vibration: latest.payload_parsed.vibration ?? null,
+      humidity: latest.payload_parsed.humidity ?? null,
+      rpm: latest.payload_parsed.rpm ?? null,
+      current: latest.payload_parsed.current ?? null,
+    } : {
+      temperature: null,
+      vibration: null,
+      humidity: null,
+      rpm: null,
+      current: null,
+    };
+  });
+  
+  return result;
 }
 
