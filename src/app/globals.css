@@ -42,6 +42,7 @@ body {
 body {
   background: var(--gradient-primary);
   background-attachment: fixed;
+  overflow-y: auto;
 }
 
 /* Background pattern */

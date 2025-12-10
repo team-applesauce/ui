@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Flame, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { SensorChart } from '@/components/SensorChart';
 import { AlertsPanel } from '@/components/AlertsPanel';
 import { MetricCard } from '@/components/MetricCard';
 import { EquipmentStatus } from '@/components/EquipmentStatus';
+import { Navbar } from '@/components/Navbar';
 import { ChartDataPoint, Alert, EquipmentStatus as EquipmentStatusType } from '@/types/sensor';
 
 interface Machine {
@@ -148,42 +149,12 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       {/* Header */}
-      <header className="dashboard-header">
-        <div className="dashboard-logo">
-          <div className="dashboard-logo-icon">
-            <Flame className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="dashboard-title">PredictiveOps</h1>
-            <p className="dashboard-subtitle">Oil & Gas Predictive Maintenance System</p>
-          </div>
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div className="ibm-badge">
-            Powered by <span>IBM Cloudant</span>
-          </div>
-          
-          <button 
-            className="refresh-button" 
-            onClick={() => fetchData(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Updating...' : 'Refresh'}
-          </button>
-          
-          <div className="dashboard-status">
-            <span className={`status-indicator ${refreshing ? 'loading' : ''}`}></span>
-            <span className="status-text">
-              {lastUpdated 
-                ? `Updated ${lastUpdated.toLocaleTimeString()}`
-                : 'Live'
-              }
-            </span>
-          </div>
-        </div>
-      </header>
+      <Navbar
+        showRefresh={true}
+        onRefresh={() => fetchData(true)}
+        refreshing={refreshing}
+        lastUpdated={lastUpdated}
+      />
 
       {/* Machine Selector */}
       <div className="machine-selector-container">
