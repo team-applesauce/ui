@@ -1,3 +1,11 @@
+
+### Access UI Here
+https://ui-sable-one.vercel.app/
+
+### System Design Diagram 
+https://drive.google.com/file/d/1ihjOD_qEBRHVjhQYnWZVf3wEp1JLTqEy/view?usp=drive_link
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
