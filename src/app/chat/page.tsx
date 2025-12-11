@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, RotateCcw } from 'lucide-react';
+import { Send, Bot, User, Loader2, RotateCcw, Wrench, Sparkles } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 
 interface Message {
@@ -11,10 +11,14 @@ interface Message {
   timestamp: Date;
 }
 
+type LoadingState = 'idle' | 'thinking' | 'tool-call' | 'streaming';
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
+  const [toolCallName, setToolCallName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -61,6 +65,8 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setLoadingState('thinking');
+    setToolCallName(null);
     setError(null);
 
     // Create abort controller for this request
@@ -172,6 +178,7 @@ export default function ChatPage() {
               
               // Handle event-based format from Watson Orchestrate
               if (data.event === 'message.delta' && data.data?.content) {
+                setLoadingState('streaming');
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
@@ -179,6 +186,33 @@ export default function ChatPage() {
                       : msg
                   )
                 );
+              }
+
+              // Handle thinking state
+              if (data.event === 'run.step.thinking' || data.event === 'planning') {
+                setLoadingState('thinking');
+              }
+
+              // Handle tool call events
+              if (data.event === 'run.step.started') {
+                const toolName = data.data?.tool_name || data.data?.name || data.tool_name;
+                if (toolName) {
+                  setLoadingState('tool-call');
+                  setToolCallName(toolName);
+                }
+              }
+
+              if (data.event === 'run.step.completed' || data.event === 'run.step.delta') {
+                // Tool call is progressing or completed, but content might still be streaming
+                if (data.data?.content || data.content) {
+                  setLoadingState('streaming');
+                }
+              }
+
+              // Handle message completion
+              if (data.event === 'message.completed' || data.event === 'run.completed') {
+                setLoadingState('idle');
+                setToolCallName(null);
               }
 
               // Extract thread_id from various possible locations in the response
@@ -251,6 +285,8 @@ export default function ChatPage() {
       setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
     } finally {
       setIsLoading(false);
+      setLoadingState('idle');
+      setToolCallName(null);
       abortControllerRef.current = null;
     }
   };
@@ -366,9 +402,31 @@ export default function ChatPage() {
                 <Bot size={20} />
               </div>
               <div className="chat-message-content">
-                <div className="chat-message-text">
-                  <Loader2 size={16} className="chat-loading-spinner" />
-                  <span style={{ marginLeft: '0.5rem' }}>Thinking...</span>
+                <div className="chat-message-text chat-loading-state">
+                  {loadingState === 'thinking' && (
+                    <div className="chat-loading-content">
+                      <Sparkles size={16} className="chat-loading-icon" />
+                      <span>Thinking...</span>
+                    </div>
+                  )}
+                  {loadingState === 'tool-call' && (
+                    <div className="chat-loading-content">
+                      <Wrench size={16} className="chat-loading-icon" />
+                      <span>Using {toolCallName || 'tool'}...</span>
+                    </div>
+                  )}
+                  {loadingState === 'streaming' && (
+                    <div className="chat-loading-content">
+                      <Loader2 size={16} className="chat-loading-spinner" />
+                      <span>Generating response...</span>
+                    </div>
+                  )}
+                  {loadingState === 'idle' && (
+                    <div className="chat-loading-content">
+                      <Loader2 size={16} className="chat-loading-spinner" />
+                      <span>Processing...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -460,10 +518,10 @@ export default function ChatPage() {
         .chat-messages-container {
           flex: 1;
           overflow-y: auto;
-          padding: 2rem;
+          padding: 1.5rem 2rem;
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 1.25rem;
         }
 
         .chat-empty-state {
@@ -525,8 +583,8 @@ export default function ChatPage() {
         }
 
         .chat-message-avatar {
-          width: 40px;
-          height: 40px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -540,10 +598,13 @@ export default function ChatPage() {
           background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
           border: none;
           color: white;
+          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
         }
 
         .chat-message-assistant .chat-message-avatar {
+          background: var(--bg-card);
           color: var(--accent-cyan);
+          border-color: rgba(6, 182, 212, 0.3);
         }
 
         .chat-message-content {
@@ -556,8 +617,8 @@ export default function ChatPage() {
         }
 
         .chat-message-text {
-          padding: 1rem 1.25rem;
-          border-radius: 16px;
+          padding: 0.875rem 1.125rem;
+          border-radius: 18px;
           background: var(--bg-secondary);
           border: 1px solid var(--border-primary);
           color: var(--text-primary);
@@ -565,23 +626,57 @@ export default function ChatPage() {
           white-space: pre-wrap;
           word-wrap: break-word;
           transition: all 0.2s ease;
+          font-size: 0.95rem;
         }
 
         .chat-message-user .chat-message-text {
           background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
           color: white;
           border: none;
+          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+        }
+
+        .chat-message-assistant .chat-message-text {
+          background: var(--bg-card);
+          border-color: var(--border-primary);
         }
 
         .chat-message-text:hover {
           border-color: var(--border-glow);
         }
 
+        .chat-loading-state {
+          background: var(--bg-card) !important;
+          border-color: rgba(6, 182, 212, 0.3) !important;
+        }
+
+        .chat-loading-content {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--text-secondary);
+        }
+
+        .chat-loading-icon {
+          color: var(--accent-cyan);
+          animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+
         .chat-message-time {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: var(--text-muted);
-          margin-top: 0.5rem;
+          margin-top: 0.375rem;
           padding: 0 0.5rem;
+          font-weight: 400;
         }
 
         .chat-typing-indicator {
