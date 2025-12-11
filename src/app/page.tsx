@@ -259,6 +259,7 @@ export default function Dashboard() {
             unit=" mm/s"
             minValue={0}
             maxValue={30}
+            useTightRange={true}
           />
           <SensorChart
             data={chartData}
@@ -277,6 +278,7 @@ export default function Dashboard() {
             unit=" A"
             minValue={0}
             maxValue={60}
+            useTightRange={true}
           />
           <SensorChart
             data={chartData}

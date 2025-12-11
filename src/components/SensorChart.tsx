@@ -20,6 +20,7 @@ interface SensorChartProps {
   unit: string;
   minValue?: number;
   maxValue?: number;
+  useTightRange?: boolean;
 }
 
 export function SensorChart({
@@ -30,11 +31,50 @@ export function SensorChart({
   unit,
   minValue,
   maxValue,
+  useTightRange = false,
 }: SensorChartProps) {
   const filteredData = data.filter((d) => d[dataKey] !== undefined);
   
   // Calculate tick interval to show more x-axis labels
   const tickInterval = Math.max(1, Math.floor(filteredData.length / 20));
+
+  // Calculate tighter y-axis domain based on actual data values (only if useTightRange is true)
+  let yAxisDomain: [number | string, number | string] = [minValue ?? 'auto', maxValue ?? 'auto'];
+  
+  if (useTightRange && filteredData.length > 0) {
+    const values = filteredData
+      .map((d) => d[dataKey] as number)
+      .filter((v) => v !== undefined && v !== null && !isNaN(v));
+    
+    if (values.length > 0) {
+      const dataMin = Math.min(...values);
+      const dataMax = Math.max(...values);
+      const range = dataMax - dataMin;
+      
+      // Calculate padding: 15% of range, or 10% of max value, or a small fixed amount
+      const padding = range > 0 
+        ? range * 0.15 
+        : Math.abs(dataMax) * 0.1 || Math.abs(dataMin) * 0.1 || 0.1;
+      
+      if (minValue !== undefined && maxValue !== undefined) {
+        // Calculate tighter range within the provided bounds
+        const calculatedMin = Math.max(minValue, dataMin - padding);
+        const calculatedMax = Math.min(maxValue, dataMax + padding);
+        
+        // Only use tighter range if it's significantly different from the full range
+        // (i.e., if data doesn't span the full range)
+        if (calculatedMax - calculatedMin < (maxValue - minValue) * 0.8) {
+          yAxisDomain = [calculatedMin, calculatedMax];
+        }
+      } else if (minValue === undefined && maxValue === undefined) {
+        // Auto-calculate with padding
+        yAxisDomain = [
+          Math.max(0, dataMin - padding),
+          dataMax + padding
+        ];
+      }
+    }
+  }
 
   return (
     <div className="chart-card">
@@ -57,7 +97,7 @@ export function SensorChart({
               stroke="#6b7280" 
               fontSize={10}
               tickLine={false}
-              domain={[minValue ?? 'auto', maxValue ?? 'auto']}
+              domain={yAxisDomain}
               tickFormatter={(value) => `${value}`}
               width={40}
             />
