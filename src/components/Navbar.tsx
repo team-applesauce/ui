@@ -35,7 +35,7 @@ export function Navbar({
         </div>
         <div>
           <h1 className="dashboard-title">
-            {isChatPage ? 'Watson Orchestrate Chat' : 'PredictiveOps'}
+            {isChatPage ? 'Watson Orchestrate Chat' : 'WatsonXWatch'}
           </h1>
           <p className="dashboard-subtitle">
             {isChatPage ? 'AI-Powered Assistant' : 'Oil & Gas Predictive Maintenance System'}

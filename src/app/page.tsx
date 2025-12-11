@@ -39,20 +39,20 @@ function getMetricStatus(value: number | null, metric: string): 'normal' | 'warn
   
   switch (metric) {
     case 'temperature':
-      if (value > 100) return 'critical';
-      if (value > 80) return 'warning';
+      // Faulty threshold: >= 50
+      if (value >= 50) return 'critical';
       return 'normal';
     case 'vibration':
-      if (value > 8) return 'critical';
-      if (value > 5) return 'warning';
+      // Faulty range: 0.6 to 1.2
+      if (value >= 0.6 && value <= 1.2) return 'critical';
       return 'normal';
     case 'rpm':
       if (value > 5000) return 'critical';
       if (value > 4000) return 'warning';
       return 'normal';
     case 'current':
-      if (value > 50) return 'critical';
-      if (value > 40) return 'warning';
+      // Faulty range: 6.0 to 8.0
+      if (value >= 6.0 && value <= 8.0) return 'critical';
       return 'normal';
     default:
       return 'normal';

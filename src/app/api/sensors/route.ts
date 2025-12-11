@@ -220,15 +220,15 @@ async function fetchAlertsFromDatabase(client: ReturnType<typeof getCloudantClie
 
 function getSeverity(parsed: NonNullable<SensorReading['payload_parsed']>): 'critical' | 'warning' | 'info' {
   // Determine severity based on thresholds
-  if (parsed.temperature && parsed.temperature > 100) return 'critical';
-  if (parsed.vibration && parsed.vibration > 8) return 'critical';
+  // Faulty temperature threshold: >= 50
+  if (parsed.temperature && parsed.temperature >= 50) return 'critical';
+  // Faulty vibration range: 0.6 to 1.2
+  if (parsed.vibration && parsed.vibration >= 0.6 && parsed.vibration <= 1.2) return 'critical';
   if (parsed.rpm && parsed.rpm > 5000) return 'critical';
-  if (parsed.current && parsed.current > 50) return 'critical';
+  // Faulty current range: 6.0 to 8.0
+  if (parsed.current && parsed.current >= 6.0 && parsed.current <= 8.0) return 'critical';
   
-  if (parsed.temperature && parsed.temperature > 80) return 'warning';
-  if (parsed.vibration && parsed.vibration > 5) return 'warning';
   if (parsed.rpm && parsed.rpm > 4000) return 'warning';
-  if (parsed.current && parsed.current > 40) return 'warning';
   
   return 'info';
 }

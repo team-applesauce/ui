@@ -540,7 +540,7 @@ export default function ChatPage() {
         .chat-empty-icon-wrapper {
           width: 80px;
           height: 80px;
-          background: var(--gradient-card);
+          background: var(--bg-card);
           border: 1px solid var(--border-primary);
           border-radius: 50%;
           display: flex;
@@ -597,7 +597,7 @@ export default function ChatPage() {
         }
 
         .chat-message-user .chat-message-avatar {
-          background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+          background: var(--accent-blue);
           border: none;
           color: white;
           box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
@@ -632,7 +632,7 @@ export default function ChatPage() {
         }
 
         .chat-message-user .chat-message-text {
-          background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+          background: var(--accent-blue);
           color: white;
           border: none;
           box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
@@ -799,7 +799,7 @@ export default function ChatPage() {
           height: 40px;
           border-radius: 50%;
           border: none;
-          background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+          background: var(--accent-blue);
           color: white;
           display: flex;
           align-items: center;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PredictiveOps | Oil & Gas Predictive Maintenance",
+  title: "WatsonXWatch | Oil & Gas Predictive Maintenance",
   description: "Real-time predictive maintenance dashboard for oil and gas equipment monitoring",
 };
 
