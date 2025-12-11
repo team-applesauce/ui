@@ -73,6 +73,9 @@ export default function ChatPage() {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+    // Create assistant message ID before try block so it's accessible in catch
+    const assistantMessageId = (Date.now() + 1).toString();
+
     try {
       // Always use the ref value to ensure we have the latest thread_id
       const currentThreadId = threadIdRef.current || threadId || localStorage.getItem('watson_thread_id');
@@ -104,7 +107,6 @@ export default function ChatPage() {
       }
 
       // Create assistant message
-      const assistantMessageId = (Date.now() + 1).toString();
       const assistantMessage: Message = {
         id: assistantMessageId,
         role: 'assistant',
