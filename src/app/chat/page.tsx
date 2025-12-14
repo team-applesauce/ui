@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, RotateCcw, Wrench, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Loader2, RotateCcw, Wrench, Sparkles, Copy, Check } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
 
 interface Message {
   id: string;
@@ -21,6 +22,7 @@ export default function ChatPage() {
   const [toolCallName, setToolCallName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const threadIdRef = useRef<string | null>(null); // Use ref to track thread_id reliably
@@ -316,44 +318,97 @@ export default function ChatPage() {
     setError(null);
   };
 
+  const handleCopyMessage = async (messageId: string, content: string) => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(content);
+        setCopiedMessageId(messageId);
+        setTimeout(() => setCopiedMessageId(null), 2000);
+      } else {
+        // Fallback for older browsers or HTTP
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            setCopiedMessageId(messageId);
+            setTimeout(() => setCopiedMessageId(null), 2000);
+          } else {
+            throw new Error('Copy command failed');
+          }
+        } catch (err) {
+          console.error('Fallback copy failed:', err);
+          // Show user-friendly error
+          alert('Failed to copy to clipboard. Please select and copy manually.');
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Fallback for clipboard API errors
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        if (successful) {
+          setCopiedMessageId(messageId);
+          setTimeout(() => setCopiedMessageId(null), 2000);
+        } else {
+          alert('Failed to copy to clipboard. Please select and copy manually.');
+        }
+        document.body.removeChild(textArea);
+      } catch (fallbackErr) {
+        console.error('Fallback copy also failed:', fallbackErr);
+        alert('Failed to copy to clipboard. Please select and copy manually.');
+      }
+    }
+  };
+
   return (
     <div className="chat-page-container">
       {/* Header */}
-      <Navbar>
-        {threadId && (
-          <span style={{ 
-            marginLeft: '0.75rem', 
-            fontSize: '0.75rem',
-            color: 'var(--accent-green)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem'
-          }}>
+      <div className="chat-header-wrapper">
+        <Navbar
+          onNewChat={handleNewConversation}
+          showNewChat={!!threadId}
+        >
+          {threadId && (
             <span style={{ 
-              width: '6px', 
-              height: '6px', 
-              borderRadius: '50%', 
-              background: 'var(--accent-green)',
-              display: 'inline-block'
-            }}></span>
+              marginLeft: '0.75rem', 
+              fontSize: '0.75rem',
+              color: 'var(--accent-green)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}>
+              <span style={{ 
+                width: '6px', 
+                height: '6px', 
+                borderRadius: '50%', 
+                background: 'var(--accent-green)',
+                display: 'inline-block'
+              }}></span>
             Thread Active
           </span>
         )}
-      </Navbar>
-
-      {/* New Chat Button */}
-      {threadId && (
-        <div className="chat-new-conversation-wrapper">
-          <button
-            onClick={handleNewConversation}
-            className="refresh-button"
-            title="Start new conversation"
-          >
-            <RotateCcw className="w-4 h-4" />
-            New Chat
-          </button>
-        </div>
-      )}
+        </Navbar>
+      </div>
 
       {/* Chat Container */}
       <div className="chat-wrapper">
@@ -383,13 +438,33 @@ export default function ChatPage() {
               </div>
               <div className="chat-message-content">
                 <div className="chat-message-text">
-                  {message.content || (message.role === 'assistant' && isLoading ? (
+                  {message.content ? (
+                    message.role === 'assistant' ? (
+                      <MarkdownMessage content={message.content} />
+                    ) : (
+                      message.content
+                    )
+                  ) : message.role === 'assistant' && isLoading ? (
                     <span className="chat-typing-indicator">
                       <span></span>
                       <span></span>
                       <span></span>
                     </span>
-                  ) : null)}
+                  ) : null}
+                  {message.content && (
+                    <button
+                      onClick={() => handleCopyMessage(message.id, message.content)}
+                      className="chat-message-copy-btn"
+                      title="Copy message"
+                      aria-label="Copy message to clipboard"
+                    >
+                      {copiedMessageId === message.id ? (
+                        <Check size={14} />
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                    </button>
+                  )}
                 </div>
                 <div className="chat-message-time">
                   {message.timestamp.toLocaleTimeString()}
@@ -492,15 +567,17 @@ export default function ChatPage() {
           flex-direction: column;
           height: 100vh;
           overflow: hidden;
-          padding: 1.5rem;
+          padding: 0;
           box-sizing: border-box;
         }
 
-        .chat-new-conversation-wrapper {
-          display: flex;
-          justify-content: flex-end;
-          margin-bottom: 1rem;
+        .chat-header-wrapper {
           flex-shrink: 0;
+        }
+
+        .chat-header-wrapper :global(.dashboard-header) {
+          margin-bottom: 0;
+          border-bottom: 1px solid var(--border-primary);
         }
 
         .chat-wrapper {
@@ -508,22 +585,19 @@ export default function ChatPage() {
           flex-direction: column;
           flex: 1;
           min-height: 0;
-          max-width: 1200px;
           width: 100%;
-          margin: 0 auto;
-          background: var(--bg-card);
-          border: 1px solid var(--border-primary);
-          border-radius: 16px;
+          background: var(--bg-primary);
           overflow: hidden;
         }
 
         .chat-messages-container {
           flex: 1;
           overflow-y: auto;
-          padding: 1.5rem 2rem;
+          padding: 1rem;
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 0.75rem;
+          max-width: 100%;
         }
 
         .chat-empty-state {
@@ -565,7 +639,7 @@ export default function ChatPage() {
 
         .chat-message {
           display: flex;
-          gap: 1rem;
+          gap: 0.75rem;
           animation: fadeIn 0.3s ease-in;
         }
 
@@ -611,24 +685,28 @@ export default function ChatPage() {
 
         .chat-message-content {
           flex: 1;
-          max-width: 75%;
+          max-width: 85%;
         }
 
         .chat-message-user .chat-message-content {
           text-align: right;
+          max-width: fit-content;
+          margin-left: auto;
         }
 
         .chat-message-text {
-          padding: 0.875rem 1.125rem;
-          border-radius: 18px;
+          padding: 0.625rem 0.875rem;
+          border-radius: 12px;
           background: var(--bg-secondary);
           border: 1px solid var(--border-primary);
           color: var(--text-primary);
-          line-height: 1.6;
+          line-height: 1.5;
           white-space: pre-wrap;
           word-wrap: break-word;
           transition: all 0.2s ease;
           font-size: 0.95rem;
+          display: inline-block;
+          position: relative;
         }
 
         .chat-message-user .chat-message-text {
@@ -636,11 +714,18 @@ export default function ChatPage() {
           color: white;
           border: none;
           box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+          max-width: 100%;
+          width: fit-content;
+          min-width: auto;
         }
 
         .chat-message-assistant .chat-message-text {
           background: var(--bg-card);
           border-color: var(--border-primary);
+        }
+
+        .chat-message-assistant .chat-message-text .md-content {
+          font-size: inherit;
         }
 
         .chat-message-text:hover {
@@ -673,10 +758,68 @@ export default function ChatPage() {
           }
         }
 
+        .chat-message-copy-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          padding: 0.375rem;
+          background: var(--bg-card);
+          border: 1px solid var(--border-primary);
+          border-radius: 6px;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          z-index: 10;
+          min-width: 28px;
+          min-height: 28px;
+        }
+
+        .chat-message-text:hover .chat-message-copy-btn,
+        .chat-message-text:focus-within .chat-message-copy-btn {
+          opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+          .chat-message-copy-btn {
+            opacity: 0.7;
+          }
+
+          .chat-message-text:active .chat-message-copy-btn {
+            opacity: 1;
+          }
+        }
+
+        .chat-message-copy-btn:hover {
+          background: var(--bg-secondary);
+          border-color: var(--accent-cyan);
+          color: var(--accent-cyan);
+          transform: scale(1.05);
+        }
+
+        .chat-message-copy-btn:active {
+          transform: scale(0.95);
+        }
+
+        .chat-message-user .chat-message-copy-btn {
+          background: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.2);
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .chat-message-user .chat-message-copy-btn:hover {
+          background: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.4);
+          color: white;
+        }
+
         .chat-message-time {
           font-size: 0.7rem;
           color: var(--text-muted);
-          margin-top: 0.375rem;
+          margin-top: 0.25rem;
           padding: 0 0.5rem;
           font-weight: 400;
         }
@@ -727,7 +870,7 @@ export default function ChatPage() {
         }
 
         .chat-error-container {
-          margin: 1rem 2rem;
+          margin: 1rem 1.5rem;
           padding: 1rem 1.25rem;
           background: rgba(239, 68, 68, 0.1);
           border: 1px solid var(--accent-red);
@@ -750,19 +893,20 @@ export default function ChatPage() {
         }
 
         .chat-input-area {
-          padding: 1.5rem;
+          padding: 0.75rem 1rem;
           border-top: 1px solid var(--border-primary);
           background: var(--bg-secondary);
+          flex-shrink: 0;
         }
 
         .chat-input-wrapper {
           display: flex;
-          gap: 0.75rem;
+          gap: 0.5rem;
           align-items: flex-end;
           background: var(--bg-card);
           border: 1px solid var(--border-primary);
           border-radius: 12px;
-          padding: 0.75rem 1rem;
+          padding: 0.5rem 0.75rem;
           transition: all 0.2s ease;
         }
 
@@ -834,27 +978,414 @@ export default function ChatPage() {
           box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
         }
 
+        /* Professional Markdown Styles */
+        .md-content {
+          line-height: 1.75;
+          color: var(--text-primary);
+          font-size: 0.95rem;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        .md-content > *:first-child {
+          margin-top: 0 !important;
+        }
+
+        .md-content > *:last-child {
+          margin-bottom: 0 !important;
+        }
+
+        /* Headings */
+        .md-h1 {
+          font-size: 2.25rem !important;
+          font-weight: 700 !important;
+          margin: 1.25rem 0 0.75rem 0 !important;
+          color: var(--text-primary) !important;
+          line-height: 1.2;
+          border-bottom: 2px solid var(--border-primary);
+          padding-bottom: 0.5rem;
+          letter-spacing: -0.02em;
+        }
+
+        .md-h2 {
+          font-size: 1.75rem !important;
+          font-weight: 600 !important;
+          margin: 1rem 0 0.625rem 0 !important;
+          color: var(--text-primary) !important;
+          line-height: 1.3;
+          letter-spacing: -0.01em;
+        }
+
+        .md-h3 {
+          font-size: 1.5rem !important;
+          font-weight: 600 !important;
+          margin: 0.875rem 0 0.5rem 0 !important;
+          color: var(--text-primary) !important;
+          line-height: 1.4;
+        }
+
+        .md-h4 {
+          font-size: 1.125rem !important;
+          font-weight: 600 !important;
+          margin: 0.625rem 0 0.375rem 0 !important;
+          color: var(--text-primary) !important;
+        }
+
+        .md-h5 {
+          font-size: 1rem !important;
+          font-weight: 600 !important;
+          margin: 0.5rem 0 0.25rem 0 !important;
+          color: var(--text-primary) !important;
+        }
+
+        .md-h6 {
+          font-size: 0.875rem !important;
+          font-weight: 600 !important;
+          margin: 0.5rem 0 0.25rem 0 !important;
+          color: var(--text-secondary) !important;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        /* Paragraphs */
+        .md-p {
+          margin: 0.625rem 0 !important;
+          color: var(--text-primary) !important;
+          line-height: 1.75;
+        }
+
+        /* Lists */
+        .md-ul,
+        .md-ol {
+          margin: 0.625rem 0 !important;
+          padding-left: 1.75rem !important;
+          color: var(--text-primary) !important;
+        }
+
+        .md-ul {
+          list-style-type: disc !important;
+        }
+
+        .md-ul .md-ul {
+          list-style-type: circle !important;
+        }
+
+        .md-ul .md-ul .md-ul {
+          list-style-type: square !important;
+        }
+
+        .md-ol {
+          list-style-type: decimal !important;
+        }
+
+        .md-li {
+          margin: 0.375rem 0 !important;
+          line-height: 1.7;
+          color: var(--text-primary) !important;
+          padding-left: 0.25rem;
+        }
+
+        .md-li::marker {
+          color: var(--accent-cyan);
+        }
+
+        .md-ul .md-ul,
+        .md-ol .md-ol,
+        .md-ul .md-ol,
+        .md-ol .md-ul {
+          margin: 0.25rem 0 !important;
+        }
+
+        /* Code */
+        .md-code-inline {
+          background: rgba(6, 182, 212, 0.12) !important;
+          border: 1px solid rgba(6, 182, 212, 0.25);
+          border-radius: 4px;
+          padding: 0.2rem 0.5rem;
+          font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace !important;
+          font-size: 0.9em !important;
+          color: var(--accent-cyan) !important;
+          font-weight: 500;
+          display: inline-block;
+        }
+
+        .md-code-block-wrapper {
+          margin: 1rem 0;
+          border-radius: 10px;
+          overflow: hidden;
+          border: 1px solid var(--border-primary);
+          background: var(--bg-secondary);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          transition: all 0.2s ease;
+        }
+
+        .md-code-block-wrapper:hover {
+          border-color: var(--border-glow);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .md-code-block-header {
+          background: var(--bg-card);
+          border-bottom: 1px solid var(--border-primary);
+          padding: 0.625rem 0.875rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
+        }
+
+        .md-code-block-lang {
+          color: var(--accent-cyan);
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-size: 0.7rem;
+        }
+
+        .md-code-copy-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.375rem 0.625rem;
+          background: transparent;
+          border: 1px solid var(--border-primary);
+          border-radius: 6px;
+          color: var(--text-secondary);
+          font-size: 0.7rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+
+        .md-code-copy-btn:hover {
+          background: var(--bg-secondary);
+          border-color: var(--accent-cyan);
+          color: var(--accent-cyan);
+        }
+
+        .md-code-copy-btn:active {
+          transform: scale(0.95);
+        }
+
+        .md-code-block {
+          margin: 0 !important;
+          padding: 1.125rem !important;
+          background: var(--bg-secondary) !important;
+          border: none !important;
+          border-radius: 0 !important;
+          overflow-x: auto;
+          font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace !important;
+          position: relative;
+        }
+
+        .md-code-block code {
+          font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace !important;
+          font-size: 0.875rem !important;
+          line-height: 1.7 !important;
+          color: var(--text-primary) !important;
+          background: transparent !important;
+          padding: 0 !important;
+          border: none !important;
+          display: block;
+        }
+
+        /* Blockquotes */
+        .md-blockquote {
+          border-left: 4px solid var(--accent-blue);
+          padding: 0.875rem 1.125rem;
+          margin: 0.875rem 0;
+          background: rgba(59, 130, 246, 0.08);
+          border-radius: 0 8px 8px 0;
+          color: var(--text-secondary);
+          font-style: italic;
+          position: relative;
+        }
+
+        .md-blockquote::before {
+          content: '"';
+          position: absolute;
+          left: 0.5rem;
+          top: 0.5rem;
+          font-size: 2rem;
+          color: var(--accent-blue);
+          opacity: 0.3;
+          font-family: serif;
+        }
+
+        .md-blockquote p {
+          margin: 0 !important;
+          position: relative;
+          z-index: 1;
+        }
+
+        /* Links */
+        .md-link {
+          color: var(--accent-blue) !important;
+          text-decoration: none;
+          border-bottom: 1px solid transparent;
+          transition: all 0.2s ease;
+          font-weight: 500;
+        }
+
+        .md-link:hover {
+          color: var(--accent-cyan) !important;
+          border-bottom-color: var(--accent-cyan);
+        }
+
+        /* Tables */
+        .md-table-wrapper {
+          overflow-x: auto;
+          margin: 1rem 0;
+          border-radius: 10px;
+          border: 1px solid var(--border-primary);
+          background: var(--bg-card);
+          -webkit-overflow-scrolling: touch;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .md-table {
+          width: 100%;
+          min-width: 100%;
+          border-collapse: collapse;
+          background: var(--bg-card);
+          font-size: 0.875rem;
+        }
+
+        .md-thead {
+          background: var(--bg-secondary);
+        }
+
+        .md-th {
+          padding: 0.875rem 1.125rem;
+          text-align: left;
+          font-weight: 600;
+          color: var(--text-primary);
+          border-bottom: 2px solid var(--border-primary);
+          background: var(--bg-secondary);
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          white-space: nowrap;
+        }
+
+        .md-td {
+          padding: 0.875rem 1.125rem;
+          border-bottom: 1px solid var(--border-primary);
+          color: var(--text-primary);
+          vertical-align: top;
+          word-wrap: break-word;
+          max-width: 500px;
+          line-height: 1.6;
+        }
+
+        .md-tr:last-child .md-td {
+          border-bottom: none;
+        }
+
+        .md-tbody .md-tr:nth-child(even) {
+          background: rgba(0, 0, 0, 0.12);
+        }
+
+        .md-tbody .md-tr:hover {
+          background: rgba(59, 130, 246, 0.1);
+          transition: background 0.15s ease;
+        }
+
+        /* Horizontal Rule */
+        .md-hr {
+          border: none;
+          border-top: 1px solid var(--border-primary);
+          margin: 1rem 0;
+        }
+
+        /* Strong and Emphasis */
+        .md-strong {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .md-em {
+          font-style: italic;
+          color: var(--text-primary);
+        }
+
+        /* Images */
+        .md-img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 0.75rem 0;
+          border: 1px solid var(--border-primary);
+        }
+
         @media (max-width: 768px) {
-          .chat-wrapper {
-            border-radius: 0;
-            border-left: none;
-            border-right: none;
-          }
-
           .chat-messages-container {
-            padding: 1.5rem 1rem;
-          }
-
-          .chat-message-content {
-            max-width: 85%;
-          }
-
-          .chat-input-area {
             padding: 1rem;
           }
 
-          .chat-new-conversation-wrapper {
-            padding: 0 1rem;
+          .chat-message-content {
+            max-width: 90%;
+          }
+
+          .chat-message-text {
+            font-size: 0.9rem;
+          }
+
+          .chat-input-area {
+            padding: 0.75rem 1rem;
+          }
+
+          .md-h1 {
+            font-size: 1.75rem !important;
+            margin: 1rem 0 0.625rem 0 !important;
+          }
+
+          .md-h2 {
+            font-size: 1.5rem !important;
+            margin: 0.875rem 0 0.5rem 0 !important;
+          }
+
+          .md-h3 {
+            font-size: 1.25rem !important;
+            margin: 0.75rem 0 0.5rem 0 !important;
+          }
+
+          .md-code-block {
+            padding: 0.875rem !important;
+            font-size: 0.8rem !important;
+          }
+
+          .md-code-block-header {
+            padding: 0.5rem 0.75rem;
+          }
+
+          .md-code-copy-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.65rem;
+          }
+
+          .md-table-wrapper {
+            font-size: 0.8rem;
+            margin: 0.75rem 0;
+          }
+
+          .md-th,
+          .md-td {
+            padding: 0.625rem 0.75rem;
+            font-size: 0.8rem;
+          }
+
+          .md-th {
+            font-size: 0.75rem;
+          }
+
+          .md-blockquote {
+            padding: 0.75rem 1rem;
           }
         }
       `}</style>

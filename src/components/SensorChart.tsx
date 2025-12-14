@@ -77,10 +77,10 @@ export function SensorChart({
   }
 
   return (
-    <div className="chart-card">
+      <div className="chart-card">
       <h3 className="chart-title">{title}</h3>
       <div className="chart-container">
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
             <XAxis 
@@ -92,6 +92,7 @@ export function SensorChart({
               angle={-45}
               textAnchor="end"
               height={40}
+              className="chart-xaxis"
             />
             <YAxis 
               stroke="#6b7280" 

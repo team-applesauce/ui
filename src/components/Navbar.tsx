@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, Flame, RefreshCw } from 'lucide-react';
+import { Home, MessageSquare, Flame, RefreshCw, RotateCcw } from 'lucide-react';
 
 interface NavbarProps {
   showRefresh?: boolean;
@@ -10,6 +10,8 @@ interface NavbarProps {
   refreshing?: boolean;
   lastUpdated?: Date | null;
   children?: React.ReactNode;
+  onNewChat?: () => void;
+  showNewChat?: boolean;
 }
 
 export function Navbar({ 
@@ -17,7 +19,9 @@ export function Navbar({
   onRefresh, 
   refreshing = false,
   lastUpdated,
-  children 
+  children,
+  onNewChat,
+  showNewChat = false
 }: NavbarProps) {
   const pathname = usePathname();
   const isHomePage = pathname === '/';
@@ -68,10 +72,22 @@ export function Navbar({
         )}
         
         {isChatPage && (
-          <Link href="/" className="refresh-button" style={{ textDecoration: 'none' }}>
-            <Home className="w-4 h-4" />
-            Home
-          </Link>
+          <>
+            <Link href="/" className="refresh-button" style={{ textDecoration: 'none' }}>
+              <Home className="w-4 h-4" />
+              Home
+            </Link>
+            {showNewChat && onNewChat && (
+              <button 
+                className="refresh-button" 
+                onClick={onNewChat}
+                title="Start new conversation"
+              >
+                <RotateCcw className="w-4 h-4" />
+                New Chat
+              </button>
+            )}
+          </>
         )}
         
         {showRefresh && (

@@ -68,8 +68,11 @@ body::before {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
+  padding: 1rem 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  flex-shrink: 0;
 }
 
 .dashboard-logo {
@@ -335,10 +338,40 @@ body::before {
 
 .chart-container {
   height: 220px;
+  min-height: 200px;
 }
 
 .chart-container-large {
   height: 300px;
+  min-height: 250px;
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    height: 200px;
+    min-height: 180px;
+  }
+
+  .chart-container-large {
+    height: 250px;
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-container {
+    height: 180px;
+    min-height: 160px;
+  }
+
+  .chart-container-large {
+    height: 220px;
+    min-height: 200px;
+  }
+
+  .chart-xaxis {
+    font-size: 8px !important;
+  }
 }
 
 /* Bottom Section */
@@ -962,15 +995,164 @@ body::before {
   font-size: 1rem;
 }
 
+/* Syntax Highlighting Styles */
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-type {
+  color: #8b5cf6;
+}
+
+.hljs-string,
+.hljs-literal {
+  color: #10b981;
+}
+
+.hljs-number {
+  color: #f59e0b;
+}
+
+.hljs-function,
+.hljs-title {
+  color: #06b6d4;
+}
+
+.hljs-variable,
+.hljs-attr {
+  color: #ef4444;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #3b82f6;
+}
+
+.hljs-meta {
+  color: #9ca3af;
+}
+
+/* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .dashboard {
+    padding: 1rem;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .dashboard-logo {
+    width: 100%;
+  }
+
+  .dashboard-title {
+    font-size: 1.5rem;
+  }
+
+  .dashboard-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .dashboard-header > div:last-child {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .ibm-badge {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .refresh-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dashboard-status {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    padding: 1rem;
+  }
+
+  .metric-value {
+    font-size: 1.75rem;
+  }
+
+  .charts-section {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .chart-card {
+    padding: 1rem;
+  }
+
+  .chart-container {
+    height: 200px;
+  }
+
+  .chart-title {
+    font-size: 0.85rem;
+  }
+
+  .bottom-section {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .alerts-panel,
+  .equipment-panel {
+    padding: 1rem;
+  }
+
+  .alerts-list,
+  .equipment-grid {
+    max-height: 300px;
+  }
+
   .machine-selector-container {
     flex-direction: column;
     align-items: flex-start;
+    padding: 0.75rem;
   }
   
   .machine-tabs {
     margin-left: 0;
     width: 100%;
+    gap: 0.5rem;
+  }
+
+  .machine-tab {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
   }
   
   .machine-selector-wrapper {
@@ -979,5 +1161,51 @@ body::before {
   
   .machine-selector-button {
     width: 100%;
+  }
+
+  .no-data-message {
+    padding: 2rem 1rem;
+  }
+
+  .no-data-message p {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard {
+    padding: 0.75rem;
+  }
+
+  .dashboard-title {
+    font-size: 1.25rem;
+  }
+
+  .metric-value {
+    font-size: 1.5rem;
+  }
+
+  .chart-container {
+    height: 180px;
+  }
+
+  .alert-item,
+  .equipment-card {
+    padding: 0.75rem;
+  }
+
+  .alert-metadata {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .alert-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .equipment-meta {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }

@@ -11,12 +11,16 @@
   "dependencies": {
     "@ibm-cloud/cloudant": "^0.12.13",
     "date-fns": "^4.1.0",
+    "highlight.js": "^11.11.1",
     "ibm-cloud-sdk-core": "^5.4.5",
     "lucide-react": "^0.556.0",
     "next": "16.0.8",
     "react": "19.2.1",
     "react-dom": "19.2.1",
-    "recharts": "^3.5.1"
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.5.1",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
