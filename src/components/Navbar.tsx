@@ -42,7 +42,7 @@ export function Navbar({
             {isChatPage ? 'Watson Orchestrate Chat' : 'WatsonXWatch'}
           </h1>
           <p className="dashboard-subtitle">
-            {isChatPage ? 'AI-Powered Assistant' : 'Oil & Gas Predictive Maintenance System'}
+            {isChatPage ? 'AI-Powered Assistant' : ''}
             {children}
           </p>
         </div>
