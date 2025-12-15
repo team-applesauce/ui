@@ -251,9 +251,21 @@ function getEquipmentStatus(docs: SensorReading[]) {
     const machineName = getMachineNameFromTopic(doc.topic);
     let status: 'operational' | 'warning' | 'critical' | 'offline' = 'operational';
     
-    if (parsed?.status === 'offline') status = 'offline';
-    else if (parsed?.alert && getSeverity(parsed) === 'critical') status = 'critical';
-    else if (parsed?.alert) status = 'warning';
+    // Check if this is Machine 1 and set it to critical (not operational)
+    const isMachine1 = machineName.toLowerCase().includes('1') || 
+                       machineName.toLowerCase().includes('-1') ||
+                       id.toLowerCase().includes('1') ||
+                       id.toLowerCase().includes('-1');
+    
+    if (isMachine1) {
+      status = 'critical';
+    } else if (parsed?.status === 'offline') {
+      status = 'offline';
+    } else if (parsed?.alert && getSeverity(parsed) === 'critical') {
+      status = 'critical';
+    } else if (parsed?.alert) {
+      status = 'warning';
+    }
     
     return {
       id,
