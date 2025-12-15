@@ -451,7 +451,7 @@ export default function ChatPage() {
                       <span></span>
                     </span>
                   ) : null}
-                  {message.content && (
+                  {message.content && message.role === 'assistant' && (
                     <button
                       onClick={() => handleCopyMessage(message.id, message.content)}
                       className="chat-message-copy-btn"
