@@ -50,7 +50,7 @@ export function Navbar({
       
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div className="ibm-badge">
-          Powered by <span>{isChatPage ? 'IBM Watson' : 'IBM Cloudant'}</span>
+          Powered by <span>{isChatPage ? 'IBM Watson' : 'IBM Cloud'}</span>
         </div>
         
         {showRefresh && onRefresh && (
